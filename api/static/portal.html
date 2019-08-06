@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <!-- import CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+    <script src="https://code.highcharts.com.cn/highcharts/highcharts.js"></script>
+    <script src="https://code.highcharts.com.cn/highcharts/modules/exporting.js"></script>
+    <script src="https://code.highcharts.com.cn/highcharts/modules/series-label.js"></script>
+    <script src="https://code.highcharts.com.cn/highcharts/modules/oldie.js"></script>
+    <script src="https://code.highcharts.com.cn/highcharts-plugins/highcharts-zh_CN.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+</head>
+<body>
+<div id="app">
+    <el-tabs v-model="activeName" @tab-click="handleClick">
+        <el-tab-pane label="折线图" name="chart"></el-tab-pane>
+        <el-tab-pane label="表格" name="table"></el-tab-pane>
+    </el-tabs>
+    <div v-if="activeName=='chart'" id="container" style="max-width:800px;height:400px"></div>
+    <el-button v-if="activeName=='chart'" @click="recordCurrentData">记录当前数据</el-button>
+    <el-table v-if="activeName=='table'" :data="tableData">
+        <el-table-column
+                prop="Data1"
+                label="Data1">
+        </el-table-column>
+        <el-table-column
+                prop="Data2"
+                label="Data2">
+        </el-table-column>
+        <el-table-column
+                prop="Data3"
+                label="Data3">
+        </el-table-column>
+        <el-table-column
+                prop="Data4"
+                label="Data4">
+        </el-table-column>
+        <el-table-column
+                prop="CreatedTime"
+                label="CreatedTime">
+        </el-table-column>
+    </el-table>
+    <el-pagination
+            v-if="activeName=='table'"
+            background
+            @current-change="changePage"
+            layout="prev, pager, next,total"
+            :page-size="pageSize"
+            :total="totalRecords">
+    </el-pagination>
+</div>
+</body>
+<!-- import Vue before Element -->
+<script src="https://unpkg.com/vue/dist/vue.js"></script>
+<!-- import JavaScript -->
+<script src="https://unpkg.com/element-ui/lib/index.js"></script>
+<script>
+    new Vue({
+        el: '#app',
+        data: {
+            activeName: 'chart',
+            data1: [],
+            data2: [],
+            data3: [],
+            data4: [],
+            ids: [],
+            tableData: [],
+            pageSize: 100,
+            pageNo: 1,
+            totalRecords: 0,
+        },
+        mounted() {
+            this.getData();
+            this.getDataLoop();
+        },
+        methods: {
+            changePage(pageNo) {
+                this.pageNo = pageNo;
+                this.getImportantData();
+            },
+            getImportantData() {
+                let cur = this;
+                axios.get("/current/importData?PageSize=" + cur.pageSize + "&PageNo=" + cur.pageNo).then(function (response) {
+                    let data = response.data.Data;
+                    console.log(data)
+                    cur.pageNo = data.PageNo;
+                    cur.pageSize = data.PageSize;
+                    cur.tableData = data.DataList;
+                    cur.totalRecords = data.TotalRecords;
+                });
+            },
+            handleClick(tab, event) {
+                if (this.activeName === 'table') {
+                    this.getImportantData();
+                }
+            },
+            recordCurrentData() {
+                let cur = this;
+                axios.put("/current/data/flag", {DataIds: cur.ids.join(',')}).then(function (response) {
+                    console.log(response.data.Data)
+                });
+            },
+            getData() {
+                if (this.activeName === 'table') {
+                    return;
+                }
+                let cur = this;
+                axios.get("/current/data").then(function (response) {
+                    let dataList = response.data.Data.DataList;
+                    cur.data1 = [];
+                    cur.data2 = [];
+                    cur.data3 = [];
+                    cur.data4 = [];
+                    cur.ids = [];
+                    for (let item of dataList) {
+                        cur.data1.push(item.Data1);
+                        cur.data2.push(item.Data2);
+                        cur.data3.push(item.Data3);
+                        cur.data4.push(item.Data4);
+                        cur.ids.push(item.Id)
+                    }
+                    cur.renderChart();
+                });
+            },
+            getDataLoop() {
+                window.setInterval(() => {
+                    setTimeout(this.getData, 0)
+                }, 10000);
+            },
+            renderChart() {
+                let cur = this;
+                let chart = Highcharts.chart('container', {
+                    title: {
+                        text: '测试数据'
+                    },
+                    yAxis: {
+                        title: {
+                            text: '数值'
+                        }
+                    },
+                    legend: {
+                        layout: 'vertical',
+                        align: 'right',
+                        verticalAlign: 'middle'
+                    },
+                    plotOptions: {
+                        series: {
+                            label: {
+                                connectorAllowed: false
+                            },
+                            pointStart: 1
+                        }
+                    },
+                    series: [{
+                        name: 'data1',
+                        data: cur.data1
+                    }, {
+                        name: 'data2',
+                        data: cur.data2
+                    }, {
+                        name: 'data3',
+                        data: cur.data3
+                    }, {
+                        name: 'data4',
+                        data: cur.data4
+                    }],
+                    responsive: {
+                        rules: [{
+                            condition: {
+                                maxWidth: 500
+                            },
+                            chartOptions: {
+                                legend: {
+                                    layout: 'horizontal',
+                                    align: 'center',
+                                    verticalAlign: 'bottom'
+                                }
+                            }
+                        }]
+                    }
+                });
+            }
+        },
+    })
+</script>
+</html>
